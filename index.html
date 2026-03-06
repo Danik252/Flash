@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 P2P Мессенджер</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 50%);
+            z-index: 0;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(15, 15, 25, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            -webkit-text-fill-color: white;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-connecting { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
+        .status-connecting .status-dot { background: #fbbf24; }
+
+        .status-online { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+        .status-online .status-dot { background: #4ade80; animation: none; }
+
+        .status-chat { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+        .status-chat .status-dot { background: #818cf8; animation: none; }
+
+        /* Main content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Setup screen */
+        .setup-screen {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-card {
+            background: rgba(15, 15, 25, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+        }
+
+        .setup-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #c7d2fe, #e9d5ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .setup-subtitle {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 32px;
+        }
+
+        .section-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #818cf8;
+            margin-bottom: 12px;
+        }
+
+        .id-display {
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .id-text {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #a5b4fc;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+            margin-left: 12px;
+        }
+
+        .copy-btn:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); }
+
+        .id-hint {
+            font-size: 0.78rem;
+            color: #4b5563;
+            margin-bottom: 28px;
+            padding-left: 4px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 28px 0;
+        }
+
+        .divider-line { flex: 1; height: 1px; background: rgba(99, 102, 241, 0.15); }
+        .divider-text { font-size: 0.8rem; color: #4b5563; font-weight: 600; }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .text-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .text-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+        }
+
+        .text-input::placeholder { color: #4b5563; }
+
+        .connect-btn {
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border: none;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .connect-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4); }
+        .connect-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Chat screen */
+        .chat-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: rgba(15, 15, 25, 0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .peer-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .peer-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #a855f7, #6366f1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .peer-name { font-weight: 700; color: #e5e7eb; }
+        .peer-status-text { font-size: 0.78rem; color: #4ade80; }
+
+        .disconnect-btn {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .disconnect-btn:hover { background: rgba(239, 68, 68, 0.25); }
+
+        /* Messages area */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .messages-area::-webkit-scrollbar { width: 6px; }
+        .messages-area::-webkit-scrollbar-track { background: transparent; }
+        .messages-area::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.2); border-radius: 3px; }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            animation: msg-in 0.3s ease-out;
+            word-wrap: break-word;
+        }
+
+        @keyframes msg-in {
+            from { opacity: 0; transform: translateY(10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .message-sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border-bottom-right-radius: 6px;
+        }
+
+        .message-received {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #e5e7eb;
+            border-bottom-left-radius: 6px;
+        }
+
+        .message-time {
+            font-size: 0.68rem;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+
+        .message-sent .message-time { text-align: right; }
+
+        .system-message {
+            align-self: center;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            font-size: 0.82rem;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .typing-indicator {
+            align-self: flex-start;
+            padding: 12px 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 18px;
+            border-bottom-left-radius: 6px;
+            display: none;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 7px;
+            height: 7px;
+            background: #818cf8;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* Message input */
+        .message-input-area {
+            background: rgba(15, 15, 25, 0.8);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(99, 102, 241, 0.1);
+            padding: 16px 20px;
+        }
+
+        .message-form {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input-wrapper {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .message-input-wrapper:focus-within {
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+        }
+
+        .message-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 14px 18px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            line-height: 1.4;
+        }
+
+        .message-input::placeholder { color: #4b5563; }
+
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border: none;
+            border-radius: 14px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .send-btn svg { width: 22px; height: 22px; }
+
+        /* Emoji & File buttons */
+        .input-actions {
+            display: flex;
+            padding: 4px 12px 10px;
+            gap: 4px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover { color: #818cf8; background: rgba(99, 102, 241, 0.1); }
+
+        /* Notification sound */
+        .hidden { display: none !important; }
+
+        /* Mobile responsive */
+        @media (max-width: 640px) {
+            .setup-card { padding: 24px; margin: 12px; }
+            .setup-title { font-size: 1.3rem; }
+            .message { max-width: 85%; }
+            .header { padding: 10px 14px; }
+            .id-text { font-size: 0.85rem; }
+        }
+
+        /* Notification toast */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(15, 15, 25, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 14px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+            animation: toast-in 0.4s ease-out;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .toast-icon { font-size: 1.3rem; }
+        .toast-text { font-size: 0.9rem; font-weight: 500; }
+
+        /* Empty state */
+        .empty-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #374151;
+        }
+
+        .empty-icon { font-size: 4rem; margin-bottom: 16px; }
+        .empty-text { font-size: 1.1rem; font-weight: 600; }
+        .empty-hint { font-size: 0.85rem; margin-top: 6px; }
+
+        .encryption-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            color: #4ade80;
+            background: rgba(34, 197, 94, 0.08);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-top: 4px;
+        }
+
+        .name-input-section {
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">⚡</div>
+                P2P Мессенджер
+            </div>
+            <div id="statusBadge" class="status-badge status-connecting">
+                <div class="status-dot"></div>
+                <span id="statusText">Подключение...</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Setup Screen -->
+            <div id="setupScreen" class="setup-screen">
+                <div class="setup-card">
+                    <div class="setup-title">🚀 Безопасный P2P Чат</div>
+                    <div class="setup-subtitle">Прямое соединение без серверов. Только вы и ваш собеседник.</div>
+
+                    <!-- Name input -->
+                    <div class="name-input-section">
+                        <div class="section-label">👤 Ваше имя</div>
+                        <input type="text" id="nameInput" class="text-input" placeholder="Как вас зовут?" maxlength="30" style="width:100%">
+                    </div>
+
+                    <div class="section-label">🔑 Ваш ID</div>
+                    <div class="id-display">
+                        <span class="id-text" id="myIdText">Загрузка...</span>
+                        <button class="copy-btn" onclick="copyId()">📋 Копировать</button>
+                    </div>
+                    <div class="id-hint">📤 Отправьте этот ID другу — он подключится к вам</div>
+
+                    <div class="divider">
+                        <div class="divider-line"></div>
+                        <span class="divider-text">или подключитесь сами</span>
+                        <div class="divider-line"></div>
+                    </div>
+
+                    <div class="section-label">🔗 ID друга</div>
+                    <div class="input-group">
+                        <input type="text" id="peerIdInput" class="text-input" placeholder="Вставьте ID друга...">
+                        <button class="connect-btn" id="connectBtn" onclick="connectToPeer()">
+                            Подключиться →
+                        </button>
+                    </div>
+
+                    <div class="encryption-badge" style="margin-top: 20px; justify-content: center;">
+                        🔒 Соединение P2P через WebRTC — данные идут напрямую
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Screen -->
+            <div id="chatScreen" class="chat-screen hidden">
+                <div class="chat-header">
+                    <div class="peer-info">
+                        <div class="peer-avatar">👤</div>
+                        <div>
+                            <div class="peer-name" id="peerName">Собеседник</div>
+                            <div class="peer-status-text">● Онлайн — P2P соединение</div>
+                        </div>
+                    </div>
+                    <button class="disconnect-btn" onclick="disconnect()">✕ Отключиться</button>
+                </div>
+
+                <div class="messages-area" id="messagesArea">
+                    <div class="empty-chat" id="emptyChat">
+                        <div class="empty-icon">💬</div>
+                        <div class="empty-text">Начните разговор!</div>
+                        <div class="empty-hint">Сообщения передаются напрямую через P2P</div>
+                    </div>
+                </div>
+
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <div class="message-input-area">
+                    <div class="message-form">
+                        <div class="message-input-wrapper">
+                            <textarea class="message-input" id="messageInput" placeholder="Напишите сообщение..." rows="1" onkeydown="handleKeyDown(event)" oninput="handleTyping()"></textarea>
+                        </div>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer"></div>
+
+    <!-- Notification sound -->
+    <audio id="notifSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipGLfWRaW3CHmJeLd2BPR2h+jYyDcmheYHmOmZaNfWpYT2Z+j5GKfHBnZHiMl5WHdGNVTGN9j5GKfHBnZHiLl5WHdGNVTGN9j5GKfHBnZHiLl5WH" type="audio/wav">
+    </audio>
+
+    <script>
+        // === State ===
+        let peer = null;
+        let conn = null;
+        let myId = '';
+        let myName = 'Аноним';
+        let peerDisplayName = 'Собеседник';
+        let typingTimeout = null;
+        let isTyping = false;
+
+        // === Initialize PeerJS ===
+        function initPeer() {
+            // Generate a short readable ID
+            const shortId = 'u' + Math.random().toString(36).substr(2, 8);
+            
+            peer = new Peer(shortId, {
+                debug: 1
+            });
+
+            peer.on('open', (id) => {
+                myId = id;
+                document.getElementById('myIdText').textContent = id;
+                updateStatus('online', 'Онлайн — готов к подключению');
+                showToast('✅', 'Вы в сети! Поделитесь вашим ID.');
+            });
+
+            peer.on('connection', (connection) => {
+                if (conn) {
+                    connection.close();
+                    return;
+                }
+                conn = connection;
+                setupConnection();
+            });
+
+            peer.on('error', (err) => {
+                console.error('PeerJS error:', err);
+                if (err.type === 'unavailable-id') {
+                    // Retry with different ID
+                    peer.destroy();
+                    initPeer();
+                } else if (err.type === 'peer-unavailable') {
+                    showToast('❌', 'Пользователь не найден. Проверьте ID.');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('connectBtn').textContent = 'Подключиться →';
+                } else {
+                    showToast('⚠️', `Ошибка: ${err.type}`);
+                }
+            });
+
+            peer.on('disconnected', () => {
+                updateStatus('connecting', 'Переподключение...');
+                peer.reconnect();
+            });
+        }
+
+        // === Connect to peer ===
+        function connectToPeer() {
+            const peerId = document.getElementById('peerIdInput').value.trim();
+            if (!peerId) {
+                showToast('⚠️', 'Введите ID друга!');
+                return;
+            }
+            if (peerId === myId) {
+                showToast('⚠️', 'Нельзя подключиться к себе!');
+                return;
+            }
+
+            myName = document.getElementById('nameInput').value.trim() || 'Аноним';
+
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('connectBtn').textContent = 'Подключение...';
+
+            conn = peer.connect(peerId, {
+                reliable: true,
+                metadata: { name: myName }
+            });
+
+            setupConnection();
+        }
+
+        // === Setup connection handlers ===
+        function setupConnection() {
+            conn.on('open', () => {
+                myName = document.getElementById('nameInput').value.trim() || 'Аноним';
+                
+                // Send our name
+                conn.send(JSON.stringify({
+                    type: 'meta',
+                    name: myName
+                }));
+
+                // Get peer's name from metadata
+                if (conn.metadata && conn.metadata.name) {
+                    peerDisplayName = conn.metadata.name;
+                }
+
+                document.getElementById('peerName').textContent = peerDisplayName;
+                showChatScreen();
+                addSystemMessage(`🔗 Соединение установлено с ${peerDisplayName}`);
+                addSystemMessage('🔒 P2P — сообщения идут напрямую');
+                updateStatus('chat', `Чат с ${peerDisplayName}`);
+                showToast('🎉', `${peerDisplayName} подключён!`);
+            });
+
+            conn.on('data', (data) => {
+                try {
+                    const msg = JSON.parse(data);
+                    
+                    if (msg.type === 'meta') {
+                        peerDisplayName = msg.name || 'Собеседник';
+                        document.getElementById('peerName').textContent = peerDisplayName;
+                        updateStatus('chat', `Чат с ${peerDisplayName}`);
+                    } else if (msg.type === 'message') {
+                        receiveMessage(msg);
+                    } else if (msg.type === 'typing') {
+                        showTypingIndicator(msg.isTyping);
+                    }
+                } catch (e) {
+                    // Plain text message fallback
+                    receiveMessage({ text: data, time: new Date().toLocaleTimeString() });
+                }
+            });
+
+            conn.on('close', () => {
+                addSystemMessage(`❌ ${peerDisplayName} отключился`);
+                updateStatus('online', 'Онлайн — ожидание');
+                showToast('👋', `${peerDisplayName} покинул чат`);
+                conn = null;
+                // Stay on chat screen so messages are visible
+            });
+
+            conn.on('error', (err) => {
+                console.error('Connection error:', err);
+                showToast('❌', 'Ошибка соединения');
+            });
+        }
+
+        // === Send message ===
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text || !conn || !conn.open) return;
+
+            const msg = {
+                type: 'message',
+                text: text,
+                time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                sender: myName
+            };
+
+            conn.send(JSON.stringify(msg));
+            addMessage(text, msg.time, true);
+            
+            input.value = '';
+            input.style.height = 'auto';
+            document.getElementById('sendBtn').disabled = true;
+
+            // Stop typing indicator
+            if (isTyping) {
+                isTyping = false;
+                conn.send(JSON.stringify({ type: 'typing', isTyping: false }));
+            }
+        }
+
+        // === Receive message ===
+        function receiveMessage(msg) {
+            addMessage(msg.text, msg.time, false);
+            showTypingIndicator(false);
+            
+            // Play sound if tab not focused
+            if (document.hidden) {
+                try {
+                    const audio = new AudioContext();
+                    const osc = audio.createOscillator();
+                    const gain = audio.createGain();
+                    osc.connect(gain);
+                    gain.connect(audio.destination);
+                    osc.frequency.value = 800;
+                    gain.gain.value = 0.1;
+                    osc.start();
+                    osc.stop(audio.currentTime + 0.15);
+                    
+                    setTimeout(() => {
+                        const osc2 = audio.createOscillator();
+                        const gain2 = audio.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audio.destination);
+                        osc2.frequency.value = 1000;
+                        gain2.gain.value = 0.1;
+                        osc2.start();
+                        osc2.stop(audio.currentTime + 0.15);
+                    }, 150);
+                } catch(e) {}
+            }
+
+            // Notify
+            if (Notification.permission === 'granted' && document.hidden) {
+                new Notification(`${msg.sender || peerDisplayName}`, {
+                    body: msg.text,
+                    icon: '💬'
+                });
+            }
+        }
+
+        // === Add message to UI ===
+        function addMessage(text, time, isSent) {
+            const emptyChat = document.getElementById('emptyChat');
+            if (emptyChat) emptyChat.remove();
+
+            const area = document.getElementById('messagesArea');
+            const div = document.createElement('div');
+            div.className = `message ${isSent ? 'message-sent' : 'message-received'}`;
+            
+            // Escape HTML
+            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Convert URLs to links
+            const withLinks = escaped.replace(
+                /(https?:\/\/[^\s]+)/g,
+                '<a href="$1" target="_blank" style="color: inherit; text-decoration: underline;">$1</a>'
+            );
+            
+            div.innerHTML = `
+                <div>${withLinks}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // === System message ===
+        function addSystemMessage(text) {
+            const emptyChat = document.getElementById('emptyChat');
+            if (emptyChat) emptyChat.remove();
+
+            const area = document.getElementById('messagesArea');
+            const div = document.createElement('div');
+            div.className = 'system-message';
+            div.textContent = text;
+            area.appendChild(div);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        // === Typing indicator ===
+        function handleTyping() {
+            const input = document.getElementById('messageInput');
+            document.getElementById('sendBtn').disabled = !input.value.trim();
+
+            // Auto-resize
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+
+            if (!conn || !conn.open) return;
+
+            if (!isTyping) {
+                isTyping = true;
+                conn.send(JSON.stringify({ type: 'typing', isTyping: true }));
+            }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                conn.send(JSON.stringify({ type: 'typing', isTyping: false }));
+            }, 2000);
+        }
+
+        function showTypingIndicator(show) {
+            document.getElementById('typingIndicator').style.display = show ? 'block' : 'none';
+            if (show) {
+                const area = document.getElementById('messagesArea');
+                area.scrollTop = area.scrollHeight;
+            }
+        }
+
+        // === Key handler ===
+        function handleKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // === UI helpers ===
+        function showChatScreen() {
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('chatScreen').classList.remove('hidden');
+        }
+
+        function disconnect() {
+            if (conn) {
+                conn.close();
+                conn = null;
+            }
+            document.getElementById('chatScreen').classList.add('hidden');
+            document.getElementById('setupScreen').classList.remove('hidden');
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('connectBtn').textContent = 'Подключиться →';
+            updateStatus('online', 'Онлайн — готов к подключению');
+        }
+
+        function copyId() {
+            navigator.clipboard.writeText(myId).then(() => {
+                showToast('📋', 'ID скопирован в буфер обмена!');
+            }).catch(() => {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = myId;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('📋', 'ID скопирован!');
+            });
+        }
+
+        function updateStatus(type, text) {
+            const badge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            badge.className = `status-badge status-${type}`;
+            statusText.textContent = text;
+        }
+
+        function showToast(icon, text) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span class="toast-text">${text}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                toast.style.transition = 'all 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // === Request notifications ===
+        if ('Notification' in window && Notification.permission === 'default') {
+            setTimeout(() => {
+                Notification.requestPermission();
+            }, 3000);
+        }
+
+        // === Init ===
+        initPeer();
+    </script>
+</body>
+</html>
